@@ -64,12 +64,11 @@ public class SeleccionNave extends JFrame {
     }
 
     private void iniciarJuego(TipoNave tipoNave) {
-        JOptionPane.showMessageDialog(this,
-            "Partida iniciada para: " + pilotoSeleccionado.getNombre() +
-            "\nDificultad: " + tipoNave.getDificultad() +
-            "\nCadencia de disparo: " + tipoNave.getTiempoDisparoMs() + " ms",
-            "Iniciando Batalla Space Defender", JOptionPane.INFORMATION_MESSAGE);
+        // 1. Abrir la ventana del Campo de Batalla pasando el piloto y la nave seleccionada
+        CampoBatalla campo = new CampoBatalla(pilotoSeleccionado, tipoNave);
+        campo.setVisible(true);
 
+        // 2. Cerrar la ventana de selección de nave
         this.dispose();
     }
 }
