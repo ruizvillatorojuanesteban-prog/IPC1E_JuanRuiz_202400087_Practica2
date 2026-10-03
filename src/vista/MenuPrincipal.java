@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import modelo.Piloto;
 import servicio.PilotoService;
 
 public class MenuPrincipal extends JFrame {
@@ -54,12 +55,17 @@ public class MenuPrincipal extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (pilotoService.getCantidadPilotos() == 0) {
-                    JOptionPane.showMessageDialog(null, 
+                    JOptionPane.showMessageDialog(MenuPrincipal.this, 
                         "Debe registrar al menos un piloto antes de iniciar la partida.", 
                         "Aviso", JOptionPane.WARNING_MESSAGE);
                 } else {
-                    JOptionPane.showMessageDialog(null, 
-                        "Pantalla de Selección de Nave / Dificultad (Siguiente fase).");
+                    // Obtener los pilotos registrados y tomar el último registrado
+                    Piloto[] lista = pilotoService.getPilotos();
+                    Piloto ultimoPiloto = lista[lista.length - 1];
+
+                    // Abrir la ventana de Selección de Nave / Dificultad
+                    SeleccionNave selector = new SeleccionNave(ultimoPiloto);
+                    selector.setVisible(true);
                 }
             }
         });
@@ -102,7 +108,7 @@ public class MenuPrincipal extends JFrame {
         }
     }
 
-    // Punto de entrada temporal para probar la interfaz
+    // Punto de entrada para iniciar la interfaz
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             new MenuPrincipal().setVisible(true);
