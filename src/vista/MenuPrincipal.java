@@ -73,8 +73,9 @@ public class MenuPrincipal extends JFrame {
         btnTopPuntajes.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                JOptionPane.showMessageDialog(null, 
-                    "Pantalla de Top de Puntajes (Pendiente de implementación con JFreeChart).");
+                // Abrir la ventana de reportes/top puntajes
+                ReportesVentana reportes = new ReportesVentana();
+                reportes.setVisible(true);
             }
         });
 
@@ -94,8 +95,8 @@ public class MenuPrincipal extends JFrame {
             "Ingrese el nombre del nuevo piloto:", 
             "Registro de Piloto", JOptionPane.QUESTION_MESSAGE);
 
-        if (nombre != null) {
-            boolean exito = pilotoService.registrarPiloto(nombre);
+        if (nombre != null && !nombre.trim().isEmpty()) {
+            boolean exito = pilotoService.registrarPiloto(nombre.trim());
             if (exito) {
                 JOptionPane.showMessageDialog(this, 
                     "Piloto '" + nombre.trim() + "' registrado correctamente.", 
