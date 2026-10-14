@@ -1,27 +1,12 @@
 package vista;
-
-
-
 import javax.swing.*;
-
 import javax.swing.table.DefaultTableModel;
-
 import java.awt.*;
-
 import controlador.GestorArchivos;
-
 import controlador.GestorArchivos.RegistroPuntaje;
 
-
-
 public class ReportesVentana extends JFrame {
-
-
-
     private RegistroPuntaje[] topPuntajes;
-
-
-
     public ReportesVentana() {
 
         setTitle("Quetzal Space Defender - Top Puntajes y Desempeño");
@@ -33,8 +18,6 @@ public class ReportesVentana extends JFrame {
         setLocationRelativeTo(null);
 
         setResizable(false);
-
-
 
         // Cargar los registros ordenados desde el gestor de archivos
 
