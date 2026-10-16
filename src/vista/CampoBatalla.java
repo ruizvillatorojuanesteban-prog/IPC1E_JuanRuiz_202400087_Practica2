@@ -17,26 +17,31 @@ public class CampoBatalla extends JFrame implements Runnable {
     // Componentes del juego
     private JPanel panelJuego;
     private JLabel lblPuntaje;
-    private JLabel lblVida;
+    private JLabel lblEstadoEfecto;
 
     // Control de juego e hilos
     private boolean enEjecucion;
     private Thread hiloPrincipal;
     private int posicionXNave = 50;
-    private int posicionYNave = 150;
+    private int posicionYNave = 180;
     private int puntos = 0;
-    private int vidas = 3; // Control de vida del jugador
 
-    // Arreglo estático para proyectiles y control de cadencia
-    private static final int MAX_DISPAROS = 50;
+    // Control de bloqueo / ralentización por asteroide gris (2 segundos)
+    private boolean naveBloqueada = false;
+    private long tiempoBloqueoFin = 0;
+
+    // Disparos rápidos
+    private static final int MAX_DISPAROS = 100; 
     private Disparo[] disparos = new Disparo[MAX_DISPAROS];
     private long ultimoDisparoMs = 0;
+    private static final long CADENCIA_DISPARO_MS = 150;
 
-    // Arreglo estático para obstáculos y generación periódica
+    // Obstáculos, elementos del campo y tipos aleatorios
     private static final int MAX_OBSTACULOS = 20;
     private Obstaculo[] obstaculos = new Obstaculo[MAX_OBSTACULOS];
+    private int[] tiposObstaculos = new int[MAX_OBSTACULOS]; // 0: Rojo, 1: Verde, 2: Morado, 3: Gris
     private long ultimoObstaculoMs = 0;
-    private static final long INTERVALO_GENERACION_OBSTACULO_MS = 1500; // 1.5 segundos
+    private static final long INTERVALO_GENERACION_OBSTACULO_MS = 1300; 
 
     public CampoBatalla(Piloto piloto, TipoNave tipoNave) {
         this.piloto = piloto;
@@ -49,14 +54,15 @@ public class CampoBatalla extends JFrame implements Runnable {
         setLocationRelativeTo(null);
         setResizable(false);
 
-        // Panel Superior para HUD (Puntaje y Estado)
+        // Panel Superior para HUD
         JPanel panelHUD = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 5));
         
         lblPuntaje = new JLabel("Piloto: " + this.piloto.getNombre() + " | Puntos: " + puntos);
-        lblVida = new JLabel("Nave: " + this.tipoNave.name() + " | Vidas: " + vidas);
+        lblEstadoEfecto = new JLabel("");
+        lblEstadoEfecto.setForeground(Color.RED);
         
         panelHUD.add(lblPuntaje);
-        panelHUD.add(lblVida);
+        panelHUD.add(lblEstadoEfecto);
 
         // Panel donde se dibuja el campo de batalla
         panelJuego = new JPanel() {
@@ -79,7 +85,9 @@ public class CampoBatalla extends JFrame implements Runnable {
             }
         });
 
-        // Iniciar el hilo del ciclo de juego
+        setFocusable(true);
+        requestFocusInWindow();
+
         hiloPrincipal = new Thread(this);
         hiloPrincipal.start();
     }
@@ -96,6 +104,9 @@ public class CampoBatalla extends JFrame implements Runnable {
                     Obstaculo nuevoObstaculo = new Obstaculo(xInicial, altoPanel);
                     obstaculos[i] = nuevoObstaculo;
 
+                    // Tipo aleatorio: 0 = Enemigo Rojo, 1 = Cápsula Verde, 2 = Núcleo Morado, 3 = Asteroide Gris
+                    tiposObstaculos[i] = (int) (Math.random() * 4);
+
                     Thread hiloObstaculo = new Thread(nuevoObstaculo);
                     hiloObstaculo.start();
 
@@ -107,6 +118,14 @@ public class CampoBatalla extends JFrame implements Runnable {
     }
 
     private void verificarColisiones() {
+        long tiempoActual = System.currentTimeMillis();
+
+        // Control de expiración del bloqueo/ralentización por asteroide gris (2 segundos)
+        if (naveBloqueada && tiempoActual >= tiempoBloqueoFin) {
+            naveBloqueada = false;
+            lblEstadoEfecto.setText("");
+        }
+
         Rectangle recNave = new Rectangle(posicionXNave, posicionYNave, 30, 20);
 
         for (int i = 0; i < MAX_OBSTACULOS; i++) {
@@ -118,7 +137,7 @@ public class CampoBatalla extends JFrame implements Runnable {
                     obstaculos[i].getTamano()
                 );
 
-                // 1. Disparo vs Obstáculo
+                // 1. Disparo vs Elemento/Obstáculo
                 for (int j = 0; j < MAX_DISPAROS; j++) {
                     if (disparos[j] != null && disparos[j].isActivo()) {
                         Rectangle recDisparo = new Rectangle(disparos[j].getX(), disparos[j].getY(), 10, 4);
@@ -133,15 +152,40 @@ public class CampoBatalla extends JFrame implements Runnable {
                     }
                 }
 
-                // 2. Nave vs Obstáculo
+                // 2. Nave vs Elementos del Campo
                 if (obstaculos[i] != null && obstaculos[i].isActivo() && recNave.intersects(recObstaculo)) {
-                    obstaculos[i].setActivo(false);
-                    vidas--;
-                    lblVida.setText("Nave: " + this.tipoNave.name() + " | Vidas: " + vidas);
+                    int tipo = tiposObstaculos[i];
 
-                    if (vidas <= 0) {
-                        enEjecucion = false; // Detiene el Game Loop
+                    if (tipo == 0) {
+                        // Enemigo (Rojo): Game Over inmediato
+                        obstaculos[i].setActivo(false);
+                        enEjecucion = false;
                         SwingUtilities.invokeLater(this::finalizarJuego);
+                        break;
+                    } 
+                    else if (tipo == 1) {
+                        // Cápsula de Suministro (Verde): Suma 10 puntos
+                        puntos += 10;
+                        lblPuntaje.setText("Piloto: " + this.piloto.getNombre() + " | Puntos: " + puntos);
+                        obstaculos[i].setActivo(false);
+                    } 
+                    else if (tipo == 2) {
+                        // Núcleo de Energía (Morado): +150 puntos y destruye todos los visibles
+                        puntos += 150;
+                        lblPuntaje.setText("Piloto: " + this.piloto.getNombre() + " | Puntos: " + puntos);
+                        
+                        for (int k = 0; k < MAX_OBSTACULOS; k++) {
+                            if (obstaculos[k] != null) {
+                                obstaculos[k].setActivo(false);
+                            }
+                        }
+                    } 
+                    else {
+                        // Asteroide (Bolita Gris): Ralentiza / bloquea la nave por 2 segundos
+                        naveBloqueada = true;
+                        tiempoBloqueoFin = tiempoActual + 2000; // 2 segundos exactos
+                        lblEstadoEfecto.setText(" ¡ASTEROIDE: NAVE BLOQUEADA (2s)! ");
+                        obstaculos[i].setActivo(false);
                     }
                 }
             }
@@ -149,26 +193,25 @@ public class CampoBatalla extends JFrame implements Runnable {
     }
 
     private void finalizarJuego() {
-        // Guardar el puntaje al perder todas las vidas
         GestorArchivos.guardarPuntaje(piloto.getNombre(), puntos, tipoNave.name());
 
         JOptionPane.showMessageDialog(this, 
-            "¡GAME OVER!\nPiloto: " + piloto.getNombre() + "\nPuntaje final: " + puntos + "\n\n¡Puntaje registrado exitosamente!", 
+            "¡GAME OVER!\nPiloto: " + piloto.getNombre() + "\nPuntaje final: " + puntos + "\n\n¡Puntaje registrado exitosamente en el historial!", 
             "Fin de la partida", 
             JOptionPane.INFORMATION_MESSAGE);
         
-        this.dispose(); // Cierra la pantalla de batalla
+        this.dispose();
     }
 
     private void dibujarJuego(Graphics g) {
-        // Dibujar Nave Jugador
-        g.setColor(Color.CYAN);
+        // La nave cambia a color naranja mientras está ralentizada/bloqueada
+        g.setColor(naveBloqueada ? Color.ORANGE : Color.CYAN);
         g.fillRect(posicionXNave, posicionYNave, 30, 20);
 
         g.setColor(Color.WHITE);
         g.drawString(">", posicionXNave + 32, posicionYNave + 15);
 
-        // Dibujar Proyectiles Activos
+        // Dibujar Proyectiles
         g.setColor(Color.YELLOW);
         for (int i = 0; i < MAX_DISPAROS; i++) {
             if (disparos[i] != null && disparos[i].isActivo()) {
@@ -178,11 +221,27 @@ public class CampoBatalla extends JFrame implements Runnable {
             }
         }
 
-        // Dibujar Obstáculos Activos
-        g.setColor(Color.RED);
+        // Dibujar elementos activos
         for (int i = 0; i < MAX_OBSTACULOS; i++) {
             if (obstaculos[i] != null && obstaculos[i].isActivo()) {
-                g.fillRect(obstaculos[i].getX(), obstaculos[i].getY(), obstaculos[i].getTamano(), obstaculos[i].getTamano());
+                int tipo = tiposObstaculos[i];
+                int x = obstaculos[i].getX();
+                int y = obstaculos[i].getY();
+                int tam = obstaculos[i].getTamano();
+
+                if (tipo == 0) {
+                    g.setColor(Color.RED); // Enemigo Rojo
+                    g.fillRect(x, y, tam, tam);
+                } else if (tipo == 1) {
+                    g.setColor(Color.GREEN); // Cápsula Verde (+10 pts)
+                    g.fillRect(x, y, tam, tam);
+                } else if (tipo == 2) {
+                    g.setColor(Color.MAGENTA); // Núcleo Morado (+150 pts)
+                    g.fillRect(x, y, tam, tam);
+                } else {
+                    g.setColor(Color.GRAY); // Asteroide Gris (Bolita que ralentiza 2s)
+                    g.fillOval(x, y, tam, tam);
+                }
             } else if (obstaculos[i] != null && !obstaculos[i].isActivo()) {
                 obstaculos[i] = null;
             }
@@ -190,13 +249,23 @@ public class CampoBatalla extends JFrame implements Runnable {
     }
 
     private void manejarTeclas(KeyEvent e) {
+        if (naveBloqueada) return; // Si fue alcanzada por un asteroide, no responde al movimiento
+
         int key = e.getKeyCode();
+        int maxX = panelJuego.getWidth() > 0 ? panelJuego.getWidth() - 40 : 760;
+        int maxY = panelJuego.getHeight() > 0 ? panelJuego.getHeight() - 30 : 320;
         
         if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
             if (posicionYNave > 10) posicionYNave -= 15;
         }
         if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-            if (posicionYNave < panelJuego.getHeight() - 30) posicionYNave += 15;
+            if (posicionYNave < maxY) posicionYNave += 15;
+        }
+        if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+            if (posicionXNave > 10) posicionXNave -= 15;
+        }
+        if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+            if (posicionXNave < maxX) posicionXNave += 15;
         }
         if (key == KeyEvent.VK_SPACE) {
             disparar();
@@ -204,9 +273,11 @@ public class CampoBatalla extends JFrame implements Runnable {
     }
 
     private void disparar() {
+        if (naveBloqueada) return; // Si fue alcanzada por un asteroide, tampoco puede disparar
+
         long tiempoActual = System.currentTimeMillis();
 
-        if (tiempoActual - ultimoDisparoMs >= tipoNave.getTiempoDisparoMs()) {
+        if (tiempoActual - ultimoDisparoMs >= CADENCIA_DISPARO_MS) {
             for (int i = 0; i < MAX_DISPAROS; i++) {
                 if (disparos[i] == null || !disparos[i].isActivo()) {
                     Disparo nuevoDisparo = new Disparo(posicionXNave + 35, posicionYNave + 8, panelJuego.getWidth());
