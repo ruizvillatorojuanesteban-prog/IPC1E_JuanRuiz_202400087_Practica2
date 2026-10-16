@@ -5,6 +5,7 @@ import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import controlador.GestorArchivos;
+import controlador.GeneradorReporteHTML;
 import modelo.Disparo;
 import modelo.Obstaculo;
 import modelo.Piloto;
@@ -195,8 +196,11 @@ public class CampoBatalla extends JFrame implements Runnable {
     private void finalizarJuego() {
         GestorArchivos.guardarPuntaje(piloto.getNombre(), puntos, tipoNave.name());
 
+        // Actualiza y genera la gráfica y el reporte HTML automáticamente con los nuevos datos
+        GeneradorReporteHTML.exportarReporteHTML();
+
         JOptionPane.showMessageDialog(this, 
-            "¡GAME OVER!\nPiloto: " + piloto.getNombre() + "\nPuntaje final: " + puntos + "\n\n¡Puntaje registrado exitosamente en el historial!", 
+            "¡GAME OVER!\nPiloto: " + piloto.getNombre() + "\nPuntaje final: " + puntos + "\n\n¡Puntaje registrado y reporte actualizado exitosamente!", 
             "Fin de la partida", 
             JOptionPane.INFORMATION_MESSAGE);
         
